@@ -1122,19 +1122,23 @@ You have access to these functions to gather information and place bets. Use the
                         "error": "Market does not have a condition ID"
                     }
                 
-                # Get current market price from CLOB
+                # Get current market price from CLOB for BUY side
                 price_response = requests.get(
-                    f"https://clob.polymarket.com/prices/{condition_id}",
+                    f"https://clob.polymarket.com/price",
+                    params={'token_id': token_id, 'side': 'BUY'},
                     timeout=10
                 )
                 
+                current_price = 0.5  # Default fallback
                 if price_response.ok:
-                    prices = price_response.json()
-                    # Get price for our token
-                    current_price = float(prices.get(token_id, 0.5))
+                    try:
+                        price_data = price_response.json()
+                        current_price = float(price_data.get('price', 0.5))
+                        print(f"     [Fetched current BUY price: ${current_price:.4f}]")
+                    except (ValueError, KeyError) as e:
+                        print(f"     [Warning: Could not parse price response: {e}, using fallback]")
                 else:
-                    # Fallback to mid-price
-                    current_price = 0.5
+                    print(f"     [Warning: Price API returned {price_response.status_code}, using fallback $0.50]")
                 
                 # Calculate shares to buy (add small buffer for price movement)
                 shares = (amount_usd / current_price) * 0.99  # 1% buffer
