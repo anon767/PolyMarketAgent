@@ -1,17 +1,3 @@
-#!/usr/bin/env python3
-"""
-Polymarket Top Traders Analysis
-
-Finds top 10 traders by Sharpe ratio, analyzes their highest volume trades,
-and identifies consensus bets across all top traders.
-
-The Polymarket leaderboard ranks by:
-- Volume (vol): Total trading volume in USD
-- P&L (pnl): Profit and Loss in USD
-
-This script calculates our own Sharpe ratio based on trade history.
-"""
-
 import requests
 import json
 import statistics
