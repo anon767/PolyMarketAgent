@@ -102,6 +102,7 @@ DECISION FRAMEWORK:
 6. Evaluate market opportunities with full context
 7. Consider risk management (position sizing, diversification)
 8. Make informed betting decisions with detailed reasoning
+9. check funds before you buy anything. pending orders might decrease our actual balance
 
 RISK MANAGEMENT RULES - AGGRESSIVE RISK-TAKING:
 - Spread across 2-5 different markets for diversification
