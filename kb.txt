@@ -1,0 +1,59 @@
+While everything is dumping, Im glad I started playing with prediction markets. At least I can still gamble my crypto port, but it doesn't depend on bitcoin crashing or whatever extreme fear sentiment the market is in. It’s actually great for hedging and 'rotation' (if you believe in that).
+
+I track a lot of Polymarket wallets, and these three have become my favorites to follow because they place diverse, high-conviction bets across everything - politics, sports, pop culture. Even crypto like "will btc touch $130k in 2025":
+
+ImJustKen: +$2.4m - 0x9d84ce0306f8551e02efef1680475fc0f1dc1344
+SwissMiss: +$2.8m - 0xdbade4c82fb72780a0db9a38f821d8671aba9c95
+fengdubiying: +$2.9m - 0x17db3fcd93ba12d38382a0cade24b200185c5f6d
+
+They’re available to the average Joe - you don’t need to be a member of congress or have a nyc real-estate dad who bankrupted himself six times.
+
+1. Nothing Ever Happens - Fade the Chaos
+Most geopolitical headlines create emotional spikes, but 90% of them resolve into nothing. When YES jumps 10-20% on hype, pros immediately buy NO because fundamentals never changed.
+
+2. Copy Trading Profitable Whales
+Some wallets have stable, long term alpha from arbitrage, data feeds, or structured models. Instead of competing, track them and mirror only their strongest convictions with 1-2% allocation. You can discover manually on pm -> more -> leaderboard or use 3rd party tools. I’ll post the video in the comments where I go into more detail about these strategies and how to find and track insiders.
+
+3. News Scalping
+Prediction markets aren't as fast as crypto or equities. HFT isn't as popular. When major news breaks: ceasefires, scandals, Fed leaks - the first 30 sec decide the trade. You buy immediately with momentum, then unload into the slower retail crowd minutes later.
+
+4. Personality-Driven Mention Trading
+These are a separate category called “mention markets,” common in political speeches and corp earnings calls.
+Speakers have predictable behavior patterns - Trump rambles and repeats, while others stick to teleprompters and avoid going off-script. You bet YES when the speaker is a talker; you bet NO when they’re scripted.
+
+Will Trump mention “rigged elections,” “worst president,” “horrible,” “tremendous”?
+These markets show up almost daily because Donnie from Queens loves to yap. Buy around $0.80 when the market opens, sell around $0.90 when the cameras start rolling.
+
+5. Fed Signal Trading
+The Fed telegraphs everything before it happens. Following Powell, Waller, Williams, Jefferson, and Timiraos lets you front-run interest rate odds before markets reprice.
+Compare with CME fed watch tool.
+
+6. Positive EV Grinding
+Some outcomes are 90-95% likely, but retail misprices them at 70-80% because they chase underdog fantasies. Everyone wants that 10x but its very rare in prediction markets. Pros buy the obvious outcome and let it drift back to fair value.
+
+7. Break Media Narratives. Trade Reality
+Western media often misreports or pushes narratives. Using local language sources, Telegram channels, and verified battlefield or political data gives you earlier and more accurate probabilities than the global crowd.
+
+8. "Girlfriend Poll" Alpha
+Pop culture markets (Taylor Swift albums, influencer drama) are mispriced by male traders. Polling women who follow this world daily gives a surprisingly accurate read.
+
+9. Mentions Markets - Default to NO
+YES is structurally overpriced in short-duration “mention” markets. Unless the speaker is historically chatty or the narrative strongly fits, NO is almost always the correct baseline.
+Even though Trump is a yapper, but he doesn't mention "crypto" often. But everyone in crypto believes believes he does.
+
+10. Main-Character Rotation
+Politics is attention-driven. Identify who is about to become the “main character” of the news cycle and buy early when they are still cheap.
+For example, everyone assumes Newsom is the next Democratic nominee - but there are still 2 full years before the 2028 election. Plenty of time for him to do something off-putting that could tank his chances.
+
+11. Riskless Rate Discounting
+"Will US admits aliens exist?" trades at 2-3%. Why?
+Multi-year markets have a built-in time-value distortion: NO-capital gets locked, holders sell early, and YES briefly becomes overpriced. That 2-3% is "riskless rate" and is present in every long duration market. You use that “aliens/Jesus” benchmark to adjust probabilities and place staggered NO orders.
+
+12. Fake News Pattern Recognition
+Prediction markets get flooded with fake filings, edited screenshots, and fabricated scandals - and retail traders jump instantly. Professionals track patterns from past hoaxes, so when a new “breaking update” appears, they check if it follows the same script. If the source looks sketchy or recycled, they fade the spike. The edge comes from spotting gullibility faster than the crowd.
+
+13. Partial Resolution Advocacy
+Some markets don’t fail on the event - they fail on the wording. Ambiguous terms like “suit,” “invade,” or “announce” trigger rule fights, leading to partial payouts. If you buy early at 20–40 cents anticipating confusion, you can profit even when the outcome isn’t clean. You’re not predicting reality, you’re predicting how the committee interprets vague language.
+
+14. Cultural Calendar Alpha
+Governments avoid embarrassing news or risky actions close to major cultural holidays, yet markets still price dramatic moves during these periods. When traders expect something big near a national or pride-heavy date, fading the hype gives you edge. Most people ignore cultural patterns, even though they strongly shape political behavior. It’s not geopolitics - it’s timing psychology.
