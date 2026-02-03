@@ -374,7 +374,7 @@ You have access to these functions to gather information and place bets. Use the
         }
     ]
     
-    def __init__(self, ai_provider: str = "chatgpt", openai_api_key: str = None, initial_balance: float = 100.0, dry_run: bool = True, polymarket_client=None, wallet_address: str = None):
+    def __init__(self, ai_provider: str = "chatgpt", openai_api_key: str = None, initial_balance: float = 100.0, dry_run: bool = True, polymarket_client=None, wallet_address: str = None, max_single_bet_pct: float = 1.0):
         """
         Initialize AI trading bot.
         
@@ -385,12 +385,14 @@ You have access to these functions to gather information and place bets. Use the
             dry_run: If True, simulates bets without real execution
             polymarket_client: Polymarket CLOB client for live trading
             wallet_address: Wallet address for fetching real trade history
+            max_single_bet_pct: Maximum percentage of available balance for a single bet (0.0-1.0, default 1.0 = 100%)
         """
         self.ai_provider = ai_provider.lower()
         self.api_key = openai_api_key
         self.dry_run = dry_run
         self.polymarket_client = polymarket_client
         self.wallet_address = wallet_address
+        self.max_single_bet_pct = max(0.0, min(1.0, max_single_bet_pct))  # Clamp between 0 and 1
         
         # Initialize Bedrock client if needed
         self.bedrock_client = None
@@ -512,7 +514,8 @@ You have access to these functions to gather information and place bets. Use the
             "positions_count": len(self.positions),
             "total_invested": round(sum(p['amount'] for p in self.positions), 2),
             "available_for_trading": round(available_balance, 2),
-            "max_single_bet": round(available_balance * 0.50, 2),
+            "max_single_bet": round(available_balance * self.max_single_bet_pct, 2),
+            "max_single_bet_pct": f"{int(self.max_single_bet_pct * 100)}%",
             "target_deployment": "100% of balance",
             "mode": "DRY_RUN" if self.dry_run else "LIVE"
         }
@@ -692,7 +695,8 @@ You have access to these functions to gather information and place bets. Use the
                 "capital_deployed_pct": round((total_invested / (self.balance + total_invested) * 100) if (self.balance + total_invested) > 0 else 0, 2),
                 "target_deployment_pct": "100%",
                 "diversification_score": f"{unique_markets}/{len(self.positions)}" if self.positions else "N/A",
-                "max_single_bet_allowed": round(self.balance * 0.50, 2)
+                "max_single_bet_allowed": round(self.balance * self.max_single_bet_pct, 2),
+                "max_single_bet_pct": f"{int(self.max_single_bet_pct * 100)}%"
             },
             "trading_activity": {
                 "total_trades": total_trades_count,
@@ -1662,6 +1666,12 @@ def main():
         '--polymarket-passphrase',
         help='Polymarket API passphrase (or set POLYMARKET_PASSPHRASE env var)'
     )
+    parser.add_argument(
+        '--max-bet-pct',
+        type=float,
+        default=1.0,
+        help='Maximum percentage of available balance for a single bet (0.0-1.0, default: 1.0 = 100%%)'
+    )
     
     args = parser.parse_args()
     
@@ -1741,7 +1751,8 @@ def main():
         initial_balance=args.balance,
         dry_run=dry_run,
         polymarket_client=polymarket_client,
-        wallet_address=wallet_address
+        wallet_address=wallet_address,
+        max_single_bet_pct=args.max_bet_pct
     )
     
     # Run trading session
