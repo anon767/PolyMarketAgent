@@ -1134,6 +1134,8 @@ You have access to these functions to gather information and place bets. Use the
                     try:
                         price_data = price_response.json()
                         current_price = float(price_data.get('price', 0.5))
+                        # Cap price to stay within CLOB bounds (0.001 - 0.999)
+                        current_price = min(max(current_price, 0.001), 0.998)
                         print(f"     [Fetched current BUY price: ${current_price:.4f}]")
                     except (ValueError, KeyError) as e:
                         print(f"     [Warning: Could not parse price response: {e}, using fallback]")
