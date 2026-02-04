@@ -58,39 +58,83 @@ class GetTradeHistoryTool(BaseTool):
                 ]
             }
         else:
-            if not bot.wallet_address:
+            if not bot.polymarket_client:
                 return {
-                    "error": "No wallet address configured",
-                    "message": "Set POLYMARKET_WALLET in .env file"
+                    "error": "Polymarket client not initialized",
+                    "message": "Cannot fetch live trades without CLOB client"
                 }
             
-            print(f"  [Fetching trade history for wallet...]")
+            print(f"  [Fetching trade history from CLOB...]")
             try:
-                trades_repo = TradesRepository()
-                trades = trades_repo.get_active_trades(bot.wallet_address, limit=limit)
+                from ...repositories.markets import MarketsRepository
+                
+                # Use CLOB client to get trades
+                trades = bot.polymarket_client.get_trades()
+                
+                # Limit results
+                trades = trades[:limit] if len(trades) > limit else trades
+                
+                # Enrich with market details
+                markets_repo = MarketsRepository()
+                enriched_trades = []
+                
+                for t in trades:
+                    market_id = t.get('market', '')
+                    
+                    # Try to get market details by condition_id
+                    market_info = None
+                    if market_id:
+                        try:
+                            # Search for market by condition_id
+                            import requests
+                            resp = requests.get(
+                                f'https://gamma-api.polymarket.com/markets',
+                                params={'condition_id': market_id, 'limit': 1}
+                            )
+                            if resp.status_code == 200:
+                                markets = resp.json()
+                                if markets:
+                                    market_info = markets[0]
+                        except:
+                            pass
+                    
+                    trade_data = {
+                        "market_id": market_id,
+                        "asset_id": t.get('asset_id', 'Unknown'),
+                        "outcome": t.get('outcome', 'Unknown'),
+                        "side": t.get('side', 'Unknown'),
+                        "size": round(float(t.get('size', 0)), 4),
+                        "price": round(float(t.get('price', 0)), 4),
+                        "amount": round(float(t.get('size', 0)) * float(t.get('price', 0)), 2),
+                        "status": t.get('status', 'Unknown'),
+                        "match_time": t.get('match_time', 'Unknown')
+                    }
+                    
+                    # Add market details if found
+                    if market_info:
+                        trade_data['market_title'] = market_info.get('question', 'Unknown')
+                        trade_data['market_slug'] = market_info.get('market_slug', 'Unknown')
+                        trade_data['description'] = market_info.get('description', 'N/A')
+                        trade_data['end_date'] = market_info.get('end_date_iso', 'Unknown')
+                    else:
+                        trade_data['market_title'] = 'Unknown (could not fetch details)'
+                        trade_data['market_slug'] = 'Unknown'
+                    
+                    enriched_trades.append(trade_data)
                 
                 return {
-                    "total_trades": len(trades),
-                    "showing": len(trades),
+                    "total_trades": len(enriched_trades),
+                    "showing": len(enriched_trades),
                     "mode": "LIVE",
-                    "trades": [
-                        {
-                            "market_slug": t.get('slug', ''),
-                            "market_title": t.get('title', 'Unknown'),
-                            "outcome": t.get('outcome', 'Unknown'),
-                            "side": t.get('side', 'Unknown'),
-                            "amount": round(float(t.get('size', 0)) * float(t.get('price', 0)), 2),
-                            "price": round(float(t.get('price', 0)), 4),
-                            "timestamp": t.get('timestamp', 0)
-                        }
-                        for t in trades
-                    ],
-                    "note": "Only showing trades in active markets"
+                    "trades": enriched_trades,
+                    "note": "Trades from CLOB client with market details"
                 }
             except Exception as e:
+                import traceback
                 return {
                     "error": str(e),
-                    "message": "Could not fetch trade history"
+                    "message": "Could not fetch trade history from CLOB",
+                    "traceback": traceback.format_exc()
                 }
 
 
