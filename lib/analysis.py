@@ -83,48 +83,196 @@ class PolymarketAPI:
 class SharpeCalculator:
     """Calculate Sharpe ratio from trade data."""
     
+    # Cache for market resolutions to avoid repeated API calls
+    _market_cache = {}
+    
+    @staticmethod
+    def _check_market_resolution_by_clob(asset_id: str) -> bool:
+        """Check if market is resolved by checking if it's delisted from CLOB."""
+        try:
+            response = requests.get(
+                'https://clob.polymarket.com/price',
+                params={'token_id': asset_id, 'side': 'BUY'},
+                timeout=3
+            )
+            # 404 means market is delisted (resolved)
+            return response.status_code == 404
+        except Exception:
+            return False
+    
+    @staticmethod
+    def _get_market_by_slug(slug: str) -> Optional[Dict]:
+        """Get market info by slug from Gamma API."""
+        try:
+            response = requests.get(
+                f'https://gamma-api.polymarket.com/markets/slug/{slug}',
+                timeout=3
+            )
+            if response.ok:
+                return response.json()
+        except Exception:
+            pass
+        return None
+    
+    @staticmethod
+    def _get_market_resolution(condition_id: str, asset_id: str = None, slug: str = None) -> Optional[Dict]:
+        """Get market resolution status from Gamma API with caching."""
+        cache_key = f"{condition_id}:{asset_id}:{slug}" if slug else (f"{condition_id}:{asset_id}" if asset_id else condition_id)
+        
+        if cache_key in SharpeCalculator._market_cache:
+            return SharpeCalculator._market_cache[cache_key]
+        
+        # First check if market is resolved via CLOB
+        is_resolved = False
+        if asset_id:
+            is_resolved = SharpeCalculator._check_market_resolution_by_clob(asset_id)
+        
+        # Try slug-based lookup first (more reliable for resolved markets)
+        market_info = None
+        if slug and is_resolved:
+            market_info = SharpeCalculator._get_market_by_slug(slug)
+            if market_info:
+                market_info['closed'] = True
+                SharpeCalculator._market_cache[cache_key] = market_info
+                return market_info
+        
+        # Fallback to condition_id lookup
+        try:
+            response = requests.get(
+                'https://gamma-api.polymarket.com/markets',
+                params={'condition_id': condition_id},
+                timeout=3
+            )
+            if response.ok:
+                markets = response.json()
+                if markets:
+                    market_info = markets[0]
+                    # Override closed status if CLOB check confirms resolution
+                    if is_resolved:
+                        market_info['closed'] = True
+                    SharpeCalculator._market_cache[cache_key] = market_info
+                    return market_info
+        except Exception:
+            pass
+        
+        SharpeCalculator._market_cache[cache_key] = None
+        return None
+    
     @staticmethod
     def calculate_returns_from_trades(trades: List[Dict]) -> List[float]:
-        """Calculate returns from matched buy/sell pairs."""
+        """
+        Calculate returns from:
+        1. Explicit SELL trades (manual exits)
+        2. Resolved markets (automatic redemption)
+        
+        Note: This makes API calls to check market resolution status.
+        For large trade histories, this may be slow.
+        """
         if not trades:
             return []
         
-        # Group trades by market
+        # Group trades by market and outcome, storing asset_id and slug for resolution checks
         from collections import defaultdict
-        market_positions = defaultdict(list)
+        market_positions = defaultdict(lambda: defaultdict(lambda: {
+            'size': 0, 
+            'cost': 0, 
+            'trades': [], 
+            'asset_id': None,
+            'slug': None
+        }))
         
         # Reverse to process chronologically
         for trade in reversed(trades):
             condition_id = trade.get('conditionId', '')
-            if condition_id:
-                market_positions[condition_id].append(trade)
+            outcome = trade.get('outcome', '')
+            asset_id = trade.get('asset', '')
+            slug = trade.get('slug', '')
+            if condition_id and outcome:
+                market_positions[condition_id][outcome]['trades'].append(trade)
+                # Store asset_id and slug for resolution checks
+                if asset_id and not market_positions[condition_id][outcome]['asset_id']:
+                    market_positions[condition_id][outcome]['asset_id'] = asset_id
+                if slug and not market_positions[condition_id][outcome]['slug']:
+                    market_positions[condition_id][outcome]['slug'] = slug
         
         returns = []
         
-        # Calculate P&L for each market
-        for condition_id, market_trades in market_positions.items():
-            position_size = 0
-            position_cost = 0
-            
-            for trade in market_trades:
-                try:
-                    side = trade.get('side', '')
-                    size = float(trade.get('size', 0))
-                    price = float(trade.get('price', 0))
+        # Calculate P&L for each market/outcome combination
+        for condition_id, outcomes in market_positions.items():
+            for outcome, data in outcomes.items():
+                position_size = 0
+                position_cost = 0
+                asset_id = data['asset_id']
+                slug = data['slug']
+                
+                for trade in data['trades']:
+                    try:
+                        side = trade.get('side', '')
+                        size = float(trade.get('size', 0))
+                        price = float(trade.get('price', 0))
+                        
+                        if side == 'BUY':
+                            position_cost += size * price
+                            position_size += size
+                        elif side == 'SELL':
+                            if position_size > 0:
+                                avg_cost = position_cost / position_size if position_size > 0 else 0
+                                pnl = size * (price - avg_cost)
+                                returns.append(pnl)
+                                
+                                position_cost -= size * avg_cost
+                                position_size -= size
+                    except (ValueError, TypeError, ZeroDivisionError):
+                        continue
+                
+                # If we still have an open position, check if market is resolved
+                if position_size > 0:
+                    # Check market resolution using condition_id, asset_id, and slug
+                    market_info = SharpeCalculator._get_market_resolution(condition_id, asset_id, slug)
+                    is_closed = market_info and market_info.get('closed', False)
                     
-                    if side == 'BUY':
-                        position_cost += size * price
-                        position_size += size
-                    elif side == 'SELL':
-                        if position_size > 0:
-                            avg_cost = position_cost / position_size if position_size > 0 else 0
-                            pnl = size * (price - avg_cost)
-                            returns.append(pnl)
+                    if is_closed and market_info:
+                        # Market is resolved - calculate P&L based on outcome
+                        outcomes_list = market_info.get('outcomes', [])
+                        prices_list = market_info.get('outcomePrices', [])
+                        
+                        # Parse if they're JSON strings
+                        if isinstance(outcomes_list, str):
+                            try:
+                                outcomes_list = json.loads(outcomes_list)
+                            except:
+                                outcomes_list = []
+                        
+                        if isinstance(prices_list, str):
+                            try:
+                                prices_list = json.loads(prices_list)
+                            except:
+                                prices_list = []
+                        
+                        # Find the price for this outcome
+                        try:
+                            outcome_index = outcomes_list.index(outcome)
+                            final_price_str = prices_list[outcome_index]
+                            final_price = float(final_price_str) if final_price_str else 0.0
                             
-                            position_cost -= size * avg_cost
-                            position_size -= size
-                except (ValueError, TypeError, ZeroDivisionError):
-                    continue
+                            # Calculate P&L based on final price
+                            # If price is very close to 1.0, outcome won (shares worth $1)
+                            # If price is very close to 0.0, outcome lost (shares worth $0)
+                            if final_price > 0.95:
+                                # Won - shares worth $1 each
+                                avg_cost = position_cost / position_size if position_size > 0 else 0
+                                pnl = position_size * (1.0 - avg_cost)
+                                returns.append(pnl)
+                            elif final_price < 0.05:
+                                # Check if another outcome clearly won
+                                prices_float = [float(p) if p else 0.0 for p in prices_list]
+                                if any(p > 0.95 for p in prices_float):
+                                    # Lost - shares worth $0
+                                    avg_cost = position_cost / position_size if position_size > 0 else 0
+                                    pnl = position_size * (0.0 - avg_cost)
+                                    returns.append(pnl)
+                        except (ValueError, IndexError, TypeError):
+                            pass
         
         return returns if returns else [0.0]
     
@@ -149,23 +297,40 @@ class SharpeCalculator:
     @staticmethod
     def calculate_max_drawdown(returns: List[float]) -> float:
         """
-        Calculate maximum drawdown.
+        Calculate maximum drawdown from peak equity.
         
         Args:
-            returns: List of returns
+            returns: List of returns (P&L from each trade/resolution)
             
         Returns:
-            Maximum drawdown as a percentage
+            Maximum drawdown as a percentage (negative value)
         """
-        if not returns:
+        if not returns or len(returns) == 0:
             return 0.0
         
+        # Calculate cumulative equity curve
         cumulative = [sum(returns[:i+1]) for i in range(len(returns))]
-        running_max = [max(cumulative[:i+1]) for i in range(len(cumulative))]
-        drawdowns = [(cumulative[i] - running_max[i]) / abs(running_max[i]) if running_max[i] != 0 else 0
-                     for i in range(len(cumulative))]
         
-        return min(drawdowns) * 100 if drawdowns else 0.0
+        # Track peak and max drawdown
+        peak = cumulative[0]
+        max_dd = 0.0
+        
+        for value in cumulative:
+            # Update peak if we have a new high
+            if value > peak:
+                peak = value
+            
+            # Calculate drawdown from peak
+            if peak > 0:
+                drawdown = ((value - peak) / peak) * 100
+                max_dd = min(max_dd, drawdown)
+            elif peak < 0:
+                # If peak is negative, we're in a loss position
+                # Drawdown is still calculated but interpretation differs
+                drawdown = ((value - peak) / abs(peak)) * 100
+                max_dd = min(max_dd, drawdown)
+        
+        return max_dd
     
     @staticmethod
     def calculate_win_rate(trades: List[Dict]) -> float:

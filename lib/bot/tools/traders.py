@@ -285,3 +285,152 @@ class GetSuggestedWhalesTool(BaseTool):
             "whales": enriched_whales,
             "note": "High-volume traders enriched with Sharpe ratio analysis"
         }
+
+
+class GetSuspiciousEventsTool(BaseTool):
+    """Get suspicious market events from PolyWhaler."""
+    
+    @property
+    def name(self) -> str:
+        return "get_suspicious_events"
+    
+    @property
+    def description(self) -> str:
+        return "Get markets with suspicious activity from PolyWhaler.com - shows markets with high insider scores, unusual volume patterns, and top whales trading. Useful for identifying potential insider trading or market manipulation. Returns market details, insider scores, suspicious volume, and top whales involved."
+    
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    
+    def execute(self, bot, **kwargs) -> Dict[str, Any]:
+        """Get suspicious market events."""
+        print(f"  [Fetching suspicious events from PolyWhaler...]")
+        
+        try:
+            import requests
+            response = requests.get(
+                "https://www.polywhaler.com/api/suspicious-events",
+                timeout=10
+            )
+            if response.ok:
+                data = response.json()
+                events = data.get('events', [])
+                
+                return {
+                    "count": len(events),
+                    "events": events,
+                    "note": "Markets with suspicious activity - high insider scores or unusual volume"
+                }
+        except Exception as e:
+            print(f"Error fetching suspicious events: {e}")
+            return {"error": "PolyWhaler unavailable", "events": []}
+
+
+class GetPolywhalerLeaderboardTool(BaseTool):
+    """Get PolyWhaler leaderboard."""
+    
+    @property
+    def name(self) -> str:
+        return "get_polywhaler_leaderboard"
+    
+    @property
+    def description(self) -> str:
+        return "Get top traders from PolyWhaler.com leaderboard ranked by smart money score. Returns trader rankings enriched with Sharpe ratio and max drawdown analysis. Includes win rates, P&L, volumes, smart money scores, and risk metrics. Alternative to get_top_traders with different ranking methodology focused on 'smart money' behavior."
+    
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer",
+                    "description": "Page number (default: 1)",
+                    "default": 1
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of traders to analyze (default: 10, max: 50)",
+                    "default": 10
+                }
+            },
+            "required": []
+        }
+    
+    def execute(self, bot, page: int = 1, limit: int = 10, **kwargs) -> Dict[str, Any]:
+        """Get PolyWhaler leaderboard with Sharpe ratio analysis."""
+        print(f"  [Fetching PolyWhaler leaderboard page {page}...]")
+        
+        try:
+            import requests
+            response = requests.get(
+                "https://www.polywhaler.com/api/leaderboard",
+                params={'page': page},
+                timeout=10
+            )
+            if response.ok:
+                data = response.json()
+                traders = data.get('entries', [])[:limit]
+                
+                print(f"  [Analyzing {len(traders)} traders for Sharpe ratio and max drawdown...]")
+                enriched_traders = []
+                
+                for t in traders:
+                    wallet = t.get('wallet')
+                    trader_name = t.get('traderName', 'Unknown')
+                    
+                    print(f"    Analyzing {trader_name}...")
+                    
+                    # Calculate Sharpe ratio and max drawdown
+                    metrics = analyze_trader(
+                        wallet=wallet,
+                        username=trader_name,
+                        rank=t.get('rank', 0),
+                        vol=0,
+                        pnl=t.get('totalProfitLoss', 0)
+                    )
+                    
+                    if metrics:
+                        enriched_traders.append({
+                            "rank": t.get('rank', 0),
+                            "wallet": wallet,
+                            "name": trader_name,
+                            "smart_money_score": t.get('smartMoneyScore', 0),
+                            "win_rate": t.get('winRate', 0),
+                            "total_pnl": round(t.get('totalProfitLoss', 0), 2),
+                            "total_trades": t.get('totalTrades', 0),
+                            "avg_insider_score": t.get('avgInsiderScore', 0),
+                            "is_confirmed_insider": t.get('isConfirmedInsider', False),
+                            "sharpe_ratio": round(metrics.sharpe_ratio, 4),
+                            "max_drawdown": round(metrics.max_drawdown, 2)
+                        })
+                    else:
+                        enriched_traders.append({
+                            "rank": t.get('rank', 0),
+                            "wallet": wallet,
+                            "name": trader_name,
+                            "smart_money_score": t.get('smartMoneyScore', 0),
+                            "win_rate": t.get('winRate', 0),
+                            "total_pnl": round(t.get('totalProfitLoss', 0), 2),
+                            "total_trades": t.get('totalTrades', 0),
+                            "avg_insider_score": t.get('avgInsiderScore', 0),
+                            "is_confirmed_insider": t.get('isConfirmedInsider', False),
+                            "sharpe_ratio": 0.0,
+                            "max_drawdown": 0.0,
+                            "note": "Risk analysis unavailable"
+                        })
+                
+                return {
+                    "page": page,
+                    "count": len(enriched_traders),
+                    "traders": enriched_traders,
+                    "total_count": data.get('totalCount', 0),
+                    "total_pages": data.get('totalPages', 0),
+                    "note": "Top traders ranked by smart money score, enriched with Sharpe ratio and max drawdown"
+                }
+        except Exception as e:
+            print(f"Error fetching leaderboard: {e}")
+            return {"error": "PolyWhaler unavailable", "traders": []}
