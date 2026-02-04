@@ -26,7 +26,10 @@ class BetPlacer:
                 "balance": self.bot.balance
             }
         
-        market_info = self.bot.tool_executor.get_market_details(market_slug)
+        # Get market details using the tool
+        from .tools.markets import GetMarketDetailsTool
+        market_details_tool = GetMarketDetailsTool()
+        market_info = market_details_tool.execute(self.bot, market_slug=market_slug)
         
         print(f"\n  💰 {'[DRY RUN] ' if self.bot.dry_run else ''}PLACING BET:")
         print(f"     Market: {market_info.get('title', market_slug)}")

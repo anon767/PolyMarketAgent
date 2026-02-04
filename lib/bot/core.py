@@ -7,8 +7,8 @@ from datetime import datetime
 from ..providers import AIProvider
 from ..repositories.wallets import WalletsRepository
 from .resources import get_system_prompt, TOOLS
-from .tools import ToolExecutor
 from .trading import BetPlacer
+from .tools import get_all_tools
 
 
 class TradingBot:
@@ -61,19 +61,14 @@ class TradingBot:
                 self.balance = initial_balance
         
         # Initialize tool executor and bet placer
-        self.tool_executor = ToolExecutor(self)
         self.bet_placer = BetPlacer(self)
+        self.tools = {tool.name: tool for tool in get_all_tools()}
     
     def execute_function(self, function_name: str, arguments: Dict[str, Any]) -> Any:
         """Execute a function call from AI."""
-        # Map function names to methods
-        if function_name == "place_bet":
-            return self.bet_placer.place_bet(**arguments)
-        
-        # All other functions are handled by tool executor
-        method = getattr(self.tool_executor, function_name, None)
-        if method:
-            return method(**arguments)
+        tool = self.tools.get(function_name)
+        if tool:
+            return tool.execute(bot=self, **arguments)
         else:
             return {"error": f"Unknown function: {function_name}"}
     
