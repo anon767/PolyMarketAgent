@@ -351,9 +351,19 @@ def analyze_trader(
     username: str,
     rank: int,
     vol: float,
-    pnl: float
+    pnl: float,
+    recent_trades_window: int = 10
 ) -> Optional[TraderMetrics]:
-    """Analyze a trader and calculate their metrics."""
+    """Analyze a trader and calculate their metrics.
+    
+    Args:
+        wallet: Trader's wallet address
+        username: Trader's username
+        rank: Leaderboard rank
+        vol: Trading volume
+        pnl: Profit and loss
+        recent_trades_window: Number of recent returns to use for Sharpe ratio and max drawdown (default: 10)
+    """
     trades = PolymarketAPI.get_trades(wallet)
     
     if not trades:
@@ -361,12 +371,16 @@ def analyze_trader(
     
     # Calculate metrics
     returns = SharpeCalculator.calculate_returns_from_trades(trades)
-    sharpe_ratio = SharpeCalculator.calculate_sharpe_ratio(returns)
-    win_rate = SharpeCalculator.calculate_win_rate(trades)
-    max_drawdown = SharpeCalculator.calculate_max_drawdown(returns)
     
-    avg_return = statistics.mean(returns) if returns else 0.0
-    volatility = statistics.stdev(returns) if len(returns) > 1 else 0.0
+    # Use only last N returns for Sharpe ratio and max drawdown
+    recent_returns = returns[-recent_trades_window:] if len(returns) > recent_trades_window else returns
+    
+    sharpe_ratio = SharpeCalculator.calculate_sharpe_ratio(recent_returns)
+    win_rate = SharpeCalculator.calculate_win_rate(trades)
+    max_drawdown = SharpeCalculator.calculate_max_drawdown(recent_returns)
+    
+    avg_return = statistics.mean(recent_returns) if recent_returns else 0.0
+    volatility = statistics.stdev(recent_returns) if len(recent_returns) > 1 else 0.0
     
     return TraderMetrics(
         wallet=wallet,
