@@ -1,6 +1,6 @@
 # Polymarket AI Trading Bot
 
-An AI-powered trading bot that analyzes top Polymarket traders and automatically places bets based on consensus signals and proven strategies.
+An AI-powered copy-trader bot that analyzes top Polymarket traders and automatically places bets based on consensus signals and proven strategies.
 
 ## Setup
 
