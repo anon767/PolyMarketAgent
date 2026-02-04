@@ -87,7 +87,33 @@ class MarketsRepository(BaseRepository):
         taker_fee = market.get('takerBaseFee', 0)
         fee_info = "No fees (0%)" if maker_fee == 0 and taker_fee == 0 else f"Maker: {maker_fee}%, Taker: {taker_fee}%"
         
-        return {
+        # Get current prices for each outcome
+        import json
+        outcomes_str = market.get('outcomes', '[]')
+        token_ids_str = market.get('clobTokenIds', '[]')
+        
+        try:
+            outcomes = json.loads(outcomes_str) if isinstance(outcomes_str, str) else outcomes_str
+            token_ids = json.loads(token_ids_str) if isinstance(token_ids_str, str) else token_ids_str
+        except:
+            outcomes = []
+            token_ids = []
+        
+        # Fetch current prices
+        outcome_prices = {}
+        if outcomes and token_ids and len(outcomes) == len(token_ids):
+            for outcome, token_id in zip(outcomes, token_ids):
+                price = self.get_price(token_id, side='SELL')
+                if price:
+                    outcome_prices[outcome] = {
+                        "current_price": round(price, 4),
+                        "potential_return": round((1.0 / price - 1.0) * 100, 2) if price > 0 else 0,
+                        "implied_probability": round(price * 100, 2),
+                        "cost_per_share": round(price, 4),
+                        "payout_if_wins": "$1.00 per share"
+                    }
+        
+        result = {
             "market_slug": market_slug,
             "title": market.get('question', 'Unknown'),
             "description": market.get('description', 'No description available'),
@@ -100,13 +126,22 @@ class MarketsRepository(BaseRepository):
             "volume": round(float(market.get('volume', 0)), 2),
             "liquidity": round(float(market.get('liquidity', 0)), 2),
             "fees": fee_info,
-            "outcomes": market.get('outcomes', '[]'),
+            "outcomes": outcomes_str,
             "condition_id": market.get('conditionId', ''),
-            "clob_token_ids": market.get('clobTokenIds', '[]'),
+            "clob_token_ids": token_ids_str,
             "trading_info": {
                 "minimum_trade": "No minimum (can trade fractional shares)",
                 "settlement": "Shares worth $1 if outcome occurs, $0 otherwise",
                 "liquidity": "Can exit position anytime at current market price"
-            },
-            "warning": "⚠️ Market is CLOSED or not accepting orders - cannot place new bets" if not tradeable else None
+            }
         }
+        
+        # Add outcome prices if available
+        if outcome_prices:
+            result["outcome_prices"] = outcome_prices
+        
+        # Add warning if not tradeable
+        if not tradeable:
+            result["warning"] = "⚠️ Market is CLOSED or not accepting orders - cannot place new bets"
+        
+        return result
