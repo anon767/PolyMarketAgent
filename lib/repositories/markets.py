@@ -33,12 +33,16 @@ class MarketsRepository(BaseRepository):
             Price as float, or None if error
         """
         try:
-            response = self._get(
+            # Make direct request to CLOB (not using base_url)
+            import requests
+            response = requests.get(
                 f"{self.clob_base}/price",
-                params={'token_id': token_id, 'side': side}
+                params={'token_id': token_id, 'side': side},
+                timeout=10
             )
-            if response:
-                return float(response.get('price', 0.5))
+            if response.ok:
+                data = response.json()
+                return float(data.get('price', 0.5))
         except Exception as e:
             print(f"Error fetching price: {e}")
         return None
