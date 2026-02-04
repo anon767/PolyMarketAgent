@@ -75,12 +75,16 @@ class WalletsRepository(BaseRepository):
             List of whale trader info
         """
         try:
-            response = self._get(
+            # Make direct request to PolyWhaler (not using base_url)
+            import requests
+            response = requests.get(
                 f"{self.POLYWHALER_URL}/api/suggested-whales",
-                params={'limit': limit}
+                params={'limit': limit},
+                timeout=10
             )
-            if response:
-                return response.get('suggestions', [])
+            if response.ok:
+                data = response.json()
+                return data.get('suggestions', [])
         except Exception as e:
             print(f"Error fetching suggested whales: {e}")
         return []
