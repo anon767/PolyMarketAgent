@@ -159,14 +159,18 @@ class SharpeCalculator:
         return None
     
     @staticmethod
-    def calculate_returns_from_trades(trades: List[Dict]) -> List[float]:
+    def calculate_returns_from_trades(trades: List[Dict], check_resolutions: bool = False) -> List[float]:
         """
         Calculate returns from:
         1. Explicit SELL trades (manual exits)
-        2. Resolved markets (automatic redemption)
+        2. Resolved markets (automatic redemption) - OPTIONAL, slow
         
-        Note: This makes API calls to check market resolution status.
-        For large trade histories, this may be slow.
+        Args:
+            trades: List of trade dictionaries
+            check_resolutions: If True, check market resolutions (slow). Default False for speed.
+        
+        Note: Setting check_resolutions=True makes API calls to check market resolution status.
+        For large trade histories, this may be slow. Use False for faster analysis.
         """
         if not trades:
             return []
@@ -225,8 +229,8 @@ class SharpeCalculator:
                     except (ValueError, TypeError, ZeroDivisionError):
                         continue
                 
-                # If we still have an open position, check if market is resolved
-                if position_size > 0:
+                # Only check resolutions if explicitly requested (slow operation)
+                if check_resolutions and position_size > 0:
                     # Check market resolution using condition_id, asset_id, and slug
                     market_info = SharpeCalculator._get_market_resolution(condition_id, asset_id, slug)
                     is_closed = market_info and market_info.get('closed', False)
@@ -352,7 +356,8 @@ def analyze_trader(
     rank: int,
     vol: float,
     pnl: float,
-    recent_trades_window: int = 10
+    recent_trades_window: int = 10,
+    check_resolutions: bool = False
 ) -> Optional[TraderMetrics]:
     """Analyze a trader and calculate their metrics.
     
@@ -363,14 +368,15 @@ def analyze_trader(
         vol: Trading volume
         pnl: Profit and loss
         recent_trades_window: Number of recent returns to use for Sharpe ratio and max drawdown (default: 10)
+        check_resolutions: Check market resolutions (slow, default: False for speed)
     """
     trades = PolymarketAPI.get_trades(wallet)
     
     if not trades:
         return None
     
-    # Calculate metrics
-    returns = SharpeCalculator.calculate_returns_from_trades(trades)
+    # Calculate metrics - skip resolution checks for speed
+    returns = SharpeCalculator.calculate_returns_from_trades(trades, check_resolutions=check_resolutions)
     
     # Use only last N returns for Sharpe ratio and max drawdown
     recent_returns = returns[-recent_trades_window:] if len(returns) > recent_trades_window else returns

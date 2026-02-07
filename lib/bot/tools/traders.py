@@ -249,7 +249,8 @@ class GetSuggestedWhalesTool(BaseTool):
                 username=w.get('name', 'Unknown'),
                 rank=0,
                 vol=w.get('recentVolume', 0),
-                pnl=0
+                pnl=0,
+                check_resolutions=False  # Fast mode - skip slow resolution checks
             )
             
             if metrics:
@@ -390,7 +391,8 @@ class GetPolywhalerLeaderboardTool(BaseTool):
                         username=trader_name,
                         rank=t.get('rank', 0),
                         vol=0,
-                        pnl=t.get('totalProfitLoss', 0)
+                        pnl=t.get('totalProfitLoss', 0),
+                        check_resolutions=False  # Fast mode - skip slow resolution checks
                     )
                     
                     if metrics:

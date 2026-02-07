@@ -11,7 +11,7 @@ class ClaudeProvider(AIProvider):
         self.bedrock_client = bedrock_client
     
     def get_name(self) -> str:
-        return "Claude 3.5 Sonnet (AWS Bedrock)"
+        return "Claude Opus 4 (AWS Bedrock)"
     
     def chat(self, messages: List[Dict[str, str]], tools: List[Dict],
              retry_count: int = 0, max_retries: int = 5) -> Optional[Dict]:
@@ -90,7 +90,7 @@ class ClaudeProvider(AIProvider):
                 request_body["system"] = system_message
             
             response = self.bedrock_client.invoke_model(
-                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+                modelId="us.anthropic.claude-opus-4-20250514-v1:0",
                 body=json.dumps(request_body)
             )
             
