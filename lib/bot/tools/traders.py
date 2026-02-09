@@ -158,13 +158,13 @@ class GetConsensusBetsTool(BaseTool):
         }
     
     def execute(self, bot, min_traders: int = 2, **kwargs) -> List[Dict[str, Any]]:
-        """Find consensus bets among top traders."""
+        """Find consensus bets among top traders and PolyWhaler whales."""
         global _top_traders_cache
         
         print(f"  [Finding consensus bets...]")
         
+        # Get top traders by Sharpe ratio
         if not _top_traders_cache:
-            # Get top traders first
             get_top_traders_tool = GetTopTradersTool()
             get_top_traders_tool.execute(bot, n=10)
         
@@ -185,6 +185,29 @@ class GetConsensusBetsTool(BaseTool):
                 max_drawdown=t['max_drawdown']
             ))
         
+        # Also get PolyWhaler whales
+        print(f"  [Including PolyWhaler whales in consensus analysis...]")
+        whales_tool = GetSuggestedWhalesTool()
+        whales_result = whales_tool.execute(bot, limit=10)
+        
+        # Add whales with good Sharpe ratios to the trader pool
+        for whale in whales_result.get('whales', []):
+            if whale.get('sharpe_ratio', 0) > 1.0:  # Only include quality whales
+                traders.append(TraderMetrics(
+                    wallet=whale['wallet'],
+                    username=whale['name'],
+                    leaderboard_rank=0,
+                    leaderboard_vol=whale.get('recent_volume', 0),
+                    leaderboard_pnl=0,
+                    total_trades=whale.get('total_trades', 0),
+                    sharpe_ratio=whale.get('sharpe_ratio', 0),
+                    avg_return=0,
+                    volatility=0,
+                    win_rate=whale.get('win_rate', 0),
+                    max_drawdown=whale.get('max_drawdown', 0)
+                ))
+        
+        print(f"  [Analyzing consensus across {len(traders)} traders (top traders + whales)...]")
         consensus = find_consensus_bets(traders)
         
         markets_repo = MarketsRepository()
@@ -196,7 +219,8 @@ class GetConsensusBetsTool(BaseTool):
                     "outcome": outcome,
                     "trader_count": trader_count,
                     "avg_volume_usd": round(avg_volume, 2),
-                    "status": "active"
+                    "status": "active",
+                    "note": "Consensus from top Sharpe traders + PolyWhaler whales"
                 })
         
         return result[:20]
@@ -313,6 +337,7 @@ class GetSuspiciousEventsTool(BaseTool):
         
         try:
             import requests
+            from datetime import datetime
             response = requests.get(
                 "https://www.polywhaler.com/api/suspicious-events",
                 timeout=10
@@ -321,10 +346,29 @@ class GetSuspiciousEventsTool(BaseTool):
                 data = response.json()
                 events = data.get('events', [])
                 
+                # Filter out old events by checking market question for old years
+                current_year = datetime.now().year
+                filtered_events = []
+                
+                for event in events:
+                    market_question = event.get('marketQuestion', '').lower()
+                    
+                    # Skip if question mentions old years
+                    has_old_year = False
+                    for year in range(2020, current_year):
+                        if str(year) in market_question:
+                            has_old_year = True
+                            break
+                    
+                    if not has_old_year:
+                        filtered_events.append(event)
+                
+                print(f"  [Filtered {len(events)} events down to {len(filtered_events)} active markets]")
+                
                 return {
-                    "count": len(events),
-                    "events": events,
-                    "note": "Markets with suspicious activity - high insider scores or unusual volume"
+                    "count": len(filtered_events),
+                    "events": filtered_events,
+                    "note": "Markets with suspicious activity - filtered to exclude old/resolved markets"
                 }
         except Exception as e:
             print(f"Error fetching suspicious events: {e}")

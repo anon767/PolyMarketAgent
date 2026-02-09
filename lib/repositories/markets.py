@@ -18,8 +18,42 @@ class MarketsRepository(BaseRepository):
         return self._get(f"/markets/slug/{slug}")
     
     def get_active_markets(self, limit: int = 20) -> List[Dict]:
-        """Get active markets."""
-        return self._get_list("/markets", params={'limit': limit, 'active': True})
+        """Get active markets using closed=false API parameter."""
+        # Use the API's closed parameter to filter at source
+        raw_markets = self._get_list("/markets", params={
+            'limit': limit,
+            'closed': 'false',
+            'active': 'true'
+        })
+        
+        if not raw_markets:
+            return []
+        
+        # Additional filtering for quality
+        current_year = datetime.now().year
+        filtered_markets = []
+        
+        for market in raw_markets:
+            # Skip if not accepting orders
+            if not market.get('acceptingOrders', False):
+                continue
+            
+            # Skip if question mentions old years (2020-2023)
+            question = market.get('question', '').lower()
+            has_old_year = any(str(year) in question for year in range(2020, current_year))
+            if has_old_year:
+                continue
+            
+            # Normalize the slug field name for consistency
+            if 'slug' in market and 'market_slug' not in market:
+                market['market_slug'] = market['slug']
+            
+            filtered_markets.append(market)
+            
+            if len(filtered_markets) >= limit:
+                break
+        
+        return filtered_markets
     
     def get_price(self, token_id: str, side: str = 'SELL') -> Optional[float]:
         """
@@ -58,7 +92,7 @@ class MarketsRepository(BaseRepository):
         is_closed = market.get('closed', True)
         accepting_orders = market.get('acceptingOrders', False)
         
-        # Check end date
+        # Check end date - reject if already passed
         end_date = market.get('endDate')
         if end_date:
             try:
@@ -68,6 +102,25 @@ class MarketsRepository(BaseRepository):
                     return False
             except:
                 pass
+        
+        # Check if market is too old (created more than 2 years ago)
+        created_at = market.get('createdAt')
+        if created_at:
+            try:
+                created_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                now = datetime.now(created_dt.tzinfo)
+                age_days = (now - created_dt).days
+                if age_days > 730:  # More than 2 years old
+                    return False
+            except:
+                pass
+        
+        # Check if question mentions old dates (like "2020", "2021", "2022", "2023")
+        question = market.get('question', '').lower()
+        current_year = datetime.now().year
+        for year in range(2020, current_year):
+            if str(year) in question:
+                return False
         
         return is_active and not is_closed and accepting_orders
     
@@ -143,5 +196,25 @@ class MarketsRepository(BaseRepository):
         # Add warning if not tradeable
         if not tradeable:
             result["warning"] = "⚠️ Market is CLOSED or not accepting orders - cannot place new bets"
+        
+        # Add warning for old markets
+        question = market.get('question', '').lower()
+        current_year = datetime.now().year
+        for year in range(2020, current_year):
+            if str(year) in question:
+                result["warning"] = f"⚠️ OLD MARKET - Question mentions {year}. This market is likely resolved or outdated."
+                break
+        
+        # Check if market is very old
+        created_at = market.get('createdAt')
+        if created_at:
+            try:
+                created_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                now = datetime.now(created_dt.tzinfo)
+                age_days = (now - created_dt).days
+                if age_days > 730:
+                    result["warning"] = f"⚠️ VERY OLD MARKET - Created {age_days} days ago. Likely resolved or outdated."
+            except:
+                pass
         
         return result

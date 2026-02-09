@@ -36,7 +36,7 @@ class GetTradeHistoryTool(BaseTool):
                 return {
                     "total_trades": 0,
                     "trades": [],
-                    "message": "No trades placed yet (dry-run mode)"
+                    "message": "No trades placed yet"
                 }
             
             recent_trades = bot.simulated_trades[-limit:]

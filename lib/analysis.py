@@ -449,19 +449,28 @@ def get_top_traders_by_sharpe(n: int = 10, sample_size: int = 50) -> List[Trader
 
 
 def get_top_volume_trades(wallet: str, n: int = 3) -> List[TradeInfo]:
-    """Get top N trades by volume for a wallet."""
+    """Get top N trades by volume for a wallet, filtered to active markets only."""
+    from .repositories.markets import MarketsRepository
+    
     trades = PolymarketAPI.get_trades(wallet, limit=500)
+    markets_repo = MarketsRepository()
     
     trade_infos = []
     for trade in trades:
         try:
+            market_slug = trade.get('slug', '')
+            
+            # Skip if market is not active
+            if not market_slug or not markets_repo.is_active(market_slug):
+                continue
+            
             size = float(trade.get('size', 0))
             price = float(trade.get('price', 0))
             value = size * price
             
             trade_infos.append(TradeInfo(
                 market_title=trade.get('title', 'Unknown'),
-                market_slug=trade.get('slug', ''),
+                market_slug=market_slug,
                 outcome=trade.get('outcome', 'N/A'),
                 side=trade.get('side', 'N/A'),
                 size=size,
@@ -480,11 +489,15 @@ def get_top_volume_trades(wallet: str, n: int = 3) -> List[TradeInfo]:
 
 def find_consensus_bets(traders: List[TraderMetrics]) -> List[Tuple[str, str, int, float]]:
     """
-    Find bets that multiple top traders agree on.
+    Find bets that multiple top traders agree on, filtered to active markets only.
     
     Returns list of (market_slug, outcome, trader_count, avg_volume)
     """
+    from .repositories.markets import MarketsRepository
+    
     print("\nAnalyzing consensus bets across top traders...")
+    
+    markets_repo = MarketsRepository()
     
     # Track (market_slug, outcome) -> list of (wallet, volume)
     bet_tracker = defaultdict(list)
@@ -500,7 +513,11 @@ def find_consensus_bets(traders: List[TraderMetrics]) -> List[Tuple[str, str, in
             outcome = trade.get('outcome', '')
             side = trade.get('side', '')
             
-            if market_slug and outcome and side == 'BUY':
+            # Skip if not active market
+            if not market_slug or not markets_repo.is_active(market_slug):
+                continue
+            
+            if outcome and side == 'BUY':
                 size = float(trade.get('size', 0))
                 price = float(trade.get('price', 0))
                 value = size * price

@@ -95,7 +95,7 @@ def run_trading(args):
             import boto3
             bedrock_client = boto3.client('bedrock-runtime')
             ai_provider = ClaudeProvider(bedrock_client)
-            print("   Model: Claude 3.5 Sonnet via AWS Bedrock")
+            print("   Model: Claude Opus 4 via AWS Bedrock")
             print("✅ Connected to AWS Bedrock")
         except Exception as e:
             print(f"❌ Error connecting to Bedrock: {e}")
